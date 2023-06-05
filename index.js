@@ -4,7 +4,6 @@ const { google } = require("googleapis");
 const path = require("path");
 const crypto = require('crypto');
 const cors = require("cors");
-const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const credentials = require("./creds.json");
 
@@ -24,7 +23,8 @@ const SCOPES = [
     "https://www.googleapis.com/auth/fitness.body.read",
     "https://www.googleapis.com/auth/fitness.sleep.read",
     "https://www.googleapis.com/auth/fitness.body.read",
-    "https://www.googleapis.com/auth/fitness.reproductive_health.read"
+    "https://www.googleapis.com/auth/fitness.reproductive_health.read",
+    "https://www.googleapis.com/auth/userinfo.profile"
   ];
 const secretKey = crypto.randomBytes(32).toString('hex');
 
@@ -40,6 +40,25 @@ app.use(
       saveUninitialized: true,
     })
   );
+
+  let userProfileData;
+  async function getUserProfile(auth) {
+    const service = google.people({ version: 'v1', auth });
+    const profile = await service.people.get({
+      resourceName: 'people/me',
+      personFields: 'names,photos,emailAddresses',
+    });
+    
+    const  displayName  = profile.data.names[0].displayName;
+    const  url = profile.data.photos[0].url;
+    let userID = profile.data.resourceName;
+    userID = parseInt(userID.replace('people/', ''), 10)
+    return {
+      displayName,
+      profilePhotoUrl: url,
+      userID
+    };
+  }
 
 app.get("/auth/google", (req, res) => {
     console.log("hittttt!!!!")
@@ -59,6 +78,12 @@ app.get("/auth/google/callback", async (req, res) => {
     const { tokens } = await oAuth2Client.getToken(code);
     oAuth2Client.setCredentials(tokens);
     req.session.tokens = tokens;
+
+    const profile = await getUserProfile(oAuth2Client);
+    // Save user profile data in the session
+   
+    req.session.userProfile = profile;
+    userProfileData=profile;
     res.redirect("http://localhost:3000/dashboard");
 
    // res.redirect("/fetch-data");
@@ -74,6 +99,13 @@ app.get("/fetch-data", async (req, res) => {
         version: "v1",
         auth: oAuth2Client,
       });
+
+    //  const userProfile = req.session.userProfile;
+   
+    // Access user's name, profile photo, and ID
+    const userName = userProfileData.displayName;
+    const profilePhoto = userProfileData.profilePhotoUrl;
+    const userId = userProfileData.userID;
   
       const sevenDaysInMillis = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
       const startTimeMillis = Date.now() - sevenDaysInMillis; // Start time is 7 days ago
@@ -197,7 +229,12 @@ app.get("/fetch-data", async (req, res) => {
       })
   
      // res.send("Fitness data fetched successfully!");
-     res.send(formattedData)
+     res.send({
+      userName,
+      profilePhoto,
+      userId,
+      formattedData // Include your fitness data here
+    });
     } catch (error) {
       console.error("Error fetching fitness data:", error);
       res.redirect("/error");
