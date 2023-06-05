@@ -41,18 +41,6 @@ app.use(
     })
   );
 
-  // Proxy route for Google OAuth
-// app.use(
-//     "/auth/google",
-//     createProxyMiddleware({
-//       target: "https://accounts.google.com",
-//       changeOrigin: true,
-//       pathRewrite: {
-//         "^/auth/google": "/o/oauth2/v2/auth",
-//       },
-//     })
-//   );
-
 app.get("/auth/google", (req, res) => {
     console.log("hittttt!!!!")
 
@@ -130,9 +118,27 @@ app.get("/fetch-data", async (req, res) => {
       });
   
       const fitnessData = response.data.bucket;
+      const formattedData = [];
+
       fitnessData.map((data)=>{
-        const date = new Date(parseInt(data.startTimeMillis));
-        console.log("Date:", date.toDateString());
+         const date = new Date(parseInt(data.startTimeMillis));
+         const formattedDate = date.toDateString();
+
+        console.log("Date:", formattedDate);
+        const formattedEntry = {
+            date: formattedDate,
+            step_count: 0,
+            glucose_level: 0,
+            blood_pressure: 0,
+           // low_blood_pressure: 0,
+            heart_rate: 0,
+            weight: 0,
+            height_in_cms: 0,
+            sleep_hours: 0,
+            body_fat_in_percent: 0,
+            menstrual_cycle_start: "",
+          };
+
         const datasetMap= data.dataset;
         datasetMap.map((mydataset)=>{
             const point = mydataset.point;
@@ -141,45 +147,57 @@ app.get("/fetch-data", async (req, res) => {
                 const value = point[0].value;
             switch(mydataset.dataSourceId){
                 case "derived:com.google.step_count.delta:com.google.android.gms:aggregated":
-                    console.log("Step count:", value[0]?.intVal);
+                    // console.log("Step count:", value[0]?.intVal);
+                    formattedEntry.step_count = value[0]?.intVal || 0;
                     break;
                 case "derived:com.google.blood_glucose.summary:com.google.android.gms:aggregated":
-                    console.log("Blood glucose:",mydataset.point[0]?.value)
+                    // console.log("Blood glucose:",mydataset.point[0]?.value)
+                    formattedEntry.glucose_level = mydataset.point[0]?.value || 0;
                     break;
                 case "derived:com.google.blood_pressure.summary:com.google.android.gms:aggregated":
-                    console.log("Blood pressure:",mydataset.point[0]?.value)
+                    // console.log("Blood pressure:",mydataset.point[0]?.value)
+                    formattedEntry.blood_pressure = mydataset.point[0]?.value
                     break;
                 case "derived:com.google.heart_rate.summary:com.google.android.gms:aggregated":
-                    console.log("Heart rate:",mydataset.point[0]?.value)
+                    // console.log("Heart rate:",mydataset.point[0]?.value)
+                    formattedEntry.heart_rate = mydataset.point[0]?.value || 0;
                     break;
                 case "derived:com.google.weight.summary:com.google.android.gms:aggregated":
-                    console.log("Weight:",value[0]?.fpVal)
+                    // console.log("Weight:",value[0]?.fpVal)
+                    formattedEntry.weight = value[0]?.fpVal || 0;
                     break;
                 case "derived:com.google.height.summary:com.google.android.gms:aggregated":
-                    console.log("Height:",value[0]?.fpVal)
+                    // console.log("Height:",value[0]?.fpVal)
+                    formattedEntry.height_in_cms = value[0]?.fpVal || 0;
                     break;
                 case "derived:com.google.sleep.segment:com.google.android.gms:merged":
-                    console.log("Sleep:",mydataset.point[0]?.value)
+                    // console.log("Sleep:",mydataset.point[0]?.value)
+                    formattedEntry.sleep_hours = mydataset.point[0]?.value || 0;
                     break;
                 case "derived:com.google.body.fat.percentage.summary:com.google.android.gms:aggregated":
-                    console.log("Body Fat:",mydataset.point[0]?.value)
+                    // console.log("Body Fat:",mydataset.point[0]?.value)
+                    formattedEntry.body_fat_in_percent = mydataset.point[0]?.value || 0;
                     break;
                 case "derived:com.google.menstruation:com.google.android.gms:aggregated":
-                    console.log("Menstrual:",mydataset.point[0]?.value)
+                    // console.log("Menstrual:",mydataset.point[0]?.value)
+                    formattedEntry.menstrual_cycle_start = mydataset.point[0]?.value || 0;
                     break;
                 default:
                     break;
             }
-            }else {
-                console.log(`No data available`);
-              }
+            }
+            // else {
+            //     console.log(`No data available`);
+            //   }
         })
-        console.log("-----------------------")
+        formattedData.push(formattedEntry);
+
+       // console.log("-----------------------")
        // console.log(datasetMap[0].point[0]?.value)
       })
   
      // res.send("Fitness data fetched successfully!");
-     res.send(fitnessData)
+     res.send(formattedData)
     } catch (error) {
       console.error("Error fetching fitness data:", error);
       res.redirect("/error");
