@@ -163,7 +163,7 @@ app.get("/fetch-data", async (req, res) => {
             date: formattedDate,
             step_count: 0,
             glucose_level: 0,
-            blood_pressure: 0,
+            blood_pressure: [],
            // low_blood_pressure: 0,
             heart_rate: 0,
             weight: 0,
@@ -186,15 +186,52 @@ app.get("/fetch-data", async (req, res) => {
                     break;
                 case "derived:com.google.blood_glucose.summary:com.google.android.gms:aggregated":
                     // console.log("Blood glucose:",mydataset.point[0]?.value)
-                    formattedEntry.glucose_level = mydataset.point[0]?.value || 0;
+                    let glucoseLevel = 0;
+                    if(mydataset.point[0]?.value){
+                      if(mydataset.point[0]?.value.length > 0){
+                        const dataArray = mydataset.point[0]?.value;
+                        dataArray.map((data)=>{
+                          if(data.fpVal){
+                            glucoseLevel = data.fpVal;
+                          }
+                        })
+                      }
+                    }
+                    formattedEntry.glucose_level = glucoseLevel;
                     break;
                 case "derived:com.google.blood_pressure.summary:com.google.android.gms:aggregated":
                     // console.log("Blood pressure:",mydataset.point[0]?.value)
-                    formattedEntry.blood_pressure = mydataset.point[0]?.value
+                    let finalData=[0,0];
+                    if(mydataset.point[0]?.value){
+                      const BParray =mydataset.point[0]?.value;
+                      if(BParray.length > 0){
+                        BParray.map((data)=>{
+                          if(data.fpVal){
+                            if(data.fpVal>100){
+                              finalData[0]= data.fpVal;
+                            }else if(data.fpVal<100){
+                              finalData[1]= data.fpVal;
+                            }
+                          }
+                        })
+                      }
+                    }
+                    formattedEntry.blood_pressure = finalData
                     break;
                 case "derived:com.google.heart_rate.summary:com.google.android.gms:aggregated":
                     // console.log("Heart rate:",mydataset.point[0]?.value)
-                    formattedEntry.heart_rate = mydataset.point[0]?.value || 0;
+                    let heartData = 0;
+                    if(mydataset.point[0]?.value){
+                      if(mydataset.point[0]?.value.length > 0){
+                        const heartArray = mydataset.point[0]?.value;
+                        heartArray.map((data)=>{
+                          if(data.fpVal){
+                            heartData = data.fpVal;
+                          }
+                        })
+                      }
+                    }
+                    formattedEntry.heart_rate = heartData;
                     break;
                 case "derived:com.google.weight.summary:com.google.android.gms:aggregated":
                     // console.log("Weight:",value[0]?.fpVal)
@@ -211,8 +248,10 @@ app.get("/fetch-data", async (req, res) => {
                 case "derived:com.google.body.fat.percentage.summary:com.google.android.gms:aggregated":
                     // console.log("Body Fat:",mydataset.point[0]?.value)
                     let bodyFat =0;
-                    if(mydataset.point[0]?.value.length > 0){
-                           bodyFat= mydataset.point[0].value[0].fpVal;
+                    if(mydataset.point[0]?.value){
+                      if(mydataset.point[0]?.value.length > 0){
+                        bodyFat= mydataset.point[0].value[0].fpVal;
+                      }
                     }
                     formattedEntry.body_fat_in_percent = bodyFat;
                     break;
