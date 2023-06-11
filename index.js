@@ -4,6 +4,8 @@ const { google } = require("googleapis");
 const path = require("path");
 const crypto = require('crypto');
 const cors = require("cors");
+const { Client, ID, Databases } = require('node-appwrite');
+
 
 const credentials = require("./creds.json");
 
@@ -92,7 +94,7 @@ app.get("/auth/google/callback", async (req, res) => {
     res.redirect("/error");
   }
 });
-
+let isSecondHit = false;
 app.get("/fetch-data", async (req, res) => {
     try {
       const fitness = google.fitness({
@@ -107,7 +109,7 @@ app.get("/fetch-data", async (req, res) => {
     const profilePhoto = userProfileData.profilePhotoUrl;
     const userId = userProfileData.userID;
   
-      const sevenDaysInMillis = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+      const sevenDaysInMillis = 14 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
       const startTimeMillis = Date.now() - sevenDaysInMillis; // Start time is 7 days ago
       const endTimeMillis = Date.now() + (24 * 60 * 60 * 1000); // End time is the current time
   
@@ -200,7 +202,7 @@ app.get("/fetch-data", async (req, res) => {
                     break;
                 case "derived:com.google.height.summary:com.google.android.gms:aggregated":
                     // console.log("Height:",value[0]?.fpVal)
-                    formattedEntry.height_in_cms = value[0]?.fpVal || 0;
+                    formattedEntry.height_in_cms = value[0]?.fpVal * 100 || 0;
                     break;
                 case "derived:com.google.sleep.segment:com.google.android.gms:merged":
                     // console.log("Sleep:",mydataset.point[0]?.value)
@@ -208,11 +210,15 @@ app.get("/fetch-data", async (req, res) => {
                     break;
                 case "derived:com.google.body.fat.percentage.summary:com.google.android.gms:aggregated":
                     // console.log("Body Fat:",mydataset.point[0]?.value)
-                    formattedEntry.body_fat_in_percent = mydataset.point[0]?.value || 0;
+                    let bodyFat =0;
+                    if(mydataset.point[0]?.value.length > 0){
+                           bodyFat= mydataset.point[0].value[0].fpVal;
+                    }
+                    formattedEntry.body_fat_in_percent = bodyFat;
                     break;
                 case "derived:com.google.menstruation:com.google.android.gms:aggregated":
                     // console.log("Menstrual:",mydataset.point[0]?.value)
-                    formattedEntry.menstrual_cycle_start = mydataset.point[0]?.value || 0;
+                    formattedEntry.menstrual_cycle_start = mydataset.point[0]?.value[0]?.intVal || 0;
                     break;
                 default:
                     break;
@@ -227,8 +233,11 @@ app.get("/fetch-data", async (req, res) => {
        // console.log("-----------------------")
        // console.log(datasetMap[0].point[0]?.value)
       })
-  
-     // res.send("Fitness data fetched successfully!");
+      if(!isSecondHit){
+       // saveDataToAppwrite({userName: userName, profilePhoto: profilePhoto, userID: userId})
+      }
+     console.log("Fitness data fetched successfully!");
+     isSecondHit = true;
      res.send({
       userName,
       profilePhoto,
@@ -241,6 +250,25 @@ app.get("/fetch-data", async (req, res) => {
     }
   });  
 
+  const saveDataToAppwrite = async (fitnessData) => {
+    try {
+      console.log(fitnessData)
+      const client = new Client();
+
+      client
+          .setEndpoint('https://cloud.appwrite.io/v1')
+          .setProject(process.env.PROJECT_ID)
+          .setKey(process.env.API_KEY)
+
+      const database = new Databases(client);
+      const collectionId = process.env.COLLECTION_ID; // Replace with your Appwrite collection ID
+
+      const response = await database.createDocument(process.env.DATABASE_ID,collectionId,ID.unique(),{username:fitnessData.userName,profileURL:fitnessData.profilePhoto});
+      console.log('Data saved to Appwrite:', response);
+    } catch (error) {
+      console.error('Error saving data to Appwrite:', error);
+    }
+  };
 
 app.listen(8000, () => {
   console.log("service listening at 8000");
