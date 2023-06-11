@@ -5,7 +5,7 @@ const path = require("path");
 const crypto = require('crypto');
 const cors = require("cors");
 const { Client, ID, Databases } = require('node-appwrite');
-
+require('dotenv').config()
 
 const credentials = require("./creds.json");
 
@@ -158,7 +158,7 @@ app.get("/fetch-data", async (req, res) => {
          const date = new Date(parseInt(data.startTimeMillis));
          const formattedDate = date.toDateString();
 
-        console.log("Date:", formattedDate);
+        //console.log("Date:", formattedDate);
         const formattedEntry = {
             date: formattedDate,
             step_count: 0,
@@ -234,7 +234,8 @@ app.get("/fetch-data", async (req, res) => {
        // console.log(datasetMap[0].point[0]?.value)
       })
       if(!isSecondHit){
-       // saveDataToAppwrite({userName: userName, profilePhoto: profilePhoto, userID: userId})
+        console.log("user id sent---",userId)
+       saveDataToAppwrite({userName: userName, profilePhoto: profilePhoto, userID: userId})
       }
      console.log("Fitness data fetched successfully!");
      isSecondHit = true;
@@ -262,9 +263,17 @@ app.get("/fetch-data", async (req, res) => {
 
       const database = new Databases(client);
       const collectionId = process.env.COLLECTION_ID; // Replace with your Appwrite collection ID
-
-      const response = await database.createDocument(process.env.DATABASE_ID,collectionId,ID.unique(),{username:fitnessData.userName,profileURL:fitnessData.profilePhoto});
-      console.log('Data saved to Appwrite:', response);
+      const databaseId = process.env.DATABASE_ID;
+    
+      const users = await database.listDocuments(databaseId,collectionId);
+      const userExists = users.documents.some((user) => user.profileURL === fitnessData.profilePhoto);
+      console.log(userExists)
+      if(!userExists){
+        const response = await database.createDocument(databaseId,collectionId,ID.unique(),{username:fitnessData.userName,profileURL:fitnessData.profilePhoto,userID:fitnessData.userID});
+        console.log('Data saved to Appwrite:', response);
+      }else{
+        console.log("user already exists")
+      }
     } catch (error) {
       console.error('Error saving data to Appwrite:', error);
     }
